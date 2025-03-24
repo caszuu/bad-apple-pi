@@ -1,0 +1,9 @@
+[submodule "pico-extras"]
+	path = pico-extras
+	url = https://github.com/raspberrypi/pico-extras
+[submodule "libvorbis"]
+	path = libvorbis
+	url = https://github.com/xiph/vorbis.git
+[submodule "libogg"]
+	path = libogg
+	url = https://gitlab.xiph.org/xiph/ogg.git
