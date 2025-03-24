@@ -1,0 +1,107 @@
+Submodule pico-extras contains modified content
+diff --git a/pico-extras/src/rp2_common/pico_audio_pwm/audio_pwm.c b/pico-extras/src/rp2_common/pico_audio_pwm/audio_pwm.c
+index 3a58011..27ad015 100644
+--- a/pico-extras/src/rp2_common/pico_audio_pwm/audio_pwm.c
++++ b/pico-extras/src/rp2_common/pico_audio_pwm/audio_pwm.c
+@@ -185,9 +185,9 @@ const audio_format_t *audio_pwm_setup(const audio_format_t *intended_audio_forma
+     pwm_consumer_format.channel_count = 1;
+ #endif
+ #ifndef AUDIO_HALF_FREQ
+-    pwm_consumer_format.sample_freq = 22058;
++    pwm_consumer_format.sample_freq = 44118;
+ #else
+-    pwm_consumer_format.sample_freq = 11029;
++    pwm_consumer_format.sample_freq = 22058;
+ #endif
+ 
+     for(int i = 0; i < shared_state.channel_count; i++)
+@@ -232,6 +232,7 @@ const audio_format_t *audio_pwm_setup(const audio_format_t *intended_audio_forma
+         // disable auto-pull for !OSRE (which doesn't work with auto-pull)
+         static_assert(CYCLES_PER_SAMPLE <= 18, "");
+         sm_config_set_out_shift(&sm_config, true, false, CMD_BITS + CYCLES_PER_SAMPLE);
++        sm_config_set_clkdiv(&sm_config, 3.f);
+         pio_sm_init(audio_pio, sm, offset, &sm_config);
+ 
+         pio_sm_set_consecutive_pindirs(audio_pio, sm, config->core.base_pin, 1, true);
+@@ -381,3 +382,43 @@ bool audio_pwm_default_connect(audio_buffer_pool_t *producer_pool, bool dedicate
+     }
+     return false;
+ }
++
++
++bool audio_pwm_channel_connect(audio_buffer_pool_t *producer_pool, struct producer_pool_blocking_give_connection *connection_buf, uint32_t channel_index)
++{
++    assert(channel_index < shared_state.channel_count);
++    assert(producer_pool->format->channel_count == 1); // a producer can only supply one channel
++
++    // printf("Connecting PIO PWM channel %d via 'blocking give'\n", channel_index);
++
++    // clear connection
++    *connection_buf = (struct producer_pool_blocking_give_connection){
++        .core = {
++            .consumer_pool_take = consumer_pool_take_buffer_default,
++            .consumer_pool_give = consumer_pool_give_buffer_default,
++            .producer_pool_take = producer_pool_take_buffer_default,
++        },
++    };
++
++    // todo oops this is pulling in everything!
++    // FIXME: check all channels have the same format
++    switch (producer_pool->format->format) {
++        case AUDIO_BUFFER_FORMAT_PCM_S16:
++            connection_buf->core.producer_pool_give = producer_pool_blocking_give_to_pwm_s16;
++            break;
++        case AUDIO_BUFFER_FORMAT_PCM_S8:
++            connection_buf->core.producer_pool_give = producer_pool_blocking_give_to_pwm_s8;
++            break;
++        case AUDIO_BUFFER_FORMAT_PCM_U16:
++            connection_buf->core.producer_pool_give = producer_pool_blocking_give_to_pwm_s16;
++            break;
++        case AUDIO_BUFFER_FORMAT_PCM_U8:
++            connection_buf->core.producer_pool_give = producer_pool_blocking_give_to_pwm_s8;
++            break;
++        default:
++            return false;
++    }
++    audio_complete_connection(&connection_buf->core, producer_pool,
++                                shared_state.playback_buffer_pool[channel_index]);
++    return true;
++}
+\ No newline at end of file
+diff --git a/pico-extras/src/rp2_common/pico_audio_pwm/audio_pwm.pio b/pico-extras/src/rp2_common/pico_audio_pwm/audio_pwm.pio
+index d3dde83..242815a 100644
+--- a/pico-extras/src/rp2_common/pico_audio_pwm/audio_pwm.pio
++++ b/pico-extras/src/rp2_common/pico_audio_pwm/audio_pwm.pio
+@@ -11,7 +11,8 @@
+ ; OSR level
+ ; cycle length = 7 + 2 + 127
+ 
+-; 136 clocks/cycle frequency 352941 / 16 = 22058
++; 136 clocks/cycle frequency 352941 / 16 = 22058 @ clk_sys 48MHz
++; 136 clocks/cycle frequency 705882 / 16 = 44118 @ clk_sys 96MHz
+ delay:
+   nop [2]
+ .wrap_target
+diff --git a/pico-extras/src/rp2_common/pico_audio_pwm/include/pico/audio_pwm.h b/pico-extras/src/rp2_common/pico_audio_pwm/include/pico/audio_pwm.h
+index 08d4f2b..86b6d84 100644
+--- a/pico-extras/src/rp2_common/pico_audio_pwm/include/pico/audio_pwm.h
++++ b/pico-extras/src/rp2_common/pico_audio_pwm/include/pico/audio_pwm.h
+@@ -158,6 +158,18 @@ audio_pwm_setup(const audio_format_t *intended_audio_format, int32_t max_latency
+  */
+ extern bool audio_pwm_default_connect(audio_buffer_pool_t *producer_pool, bool dedicate_core_1);
+ 
++/*! \brief
++ *  \ingroup pico_audio_pwm
++ *  \todo
++ *
++ * \param producer_pool
++ * \param connection_buf
++ * \param channel_index
++ * attempt a channel specific mapping of a producer buffer to pio pwm pico_audio output
++ * connection_buf is owned by the caller and gets setup by pico_audio_pwm, channel_index is the channel passed to audio_pwm_setup to be connected
++ */
++extern bool audio_pwm_channel_connect(audio_buffer_pool_t *producer_pool, struct producer_pool_blocking_give_connection *connection_buf, uint32_t channel_index);
++
+ /*! \brief
+  *  \ingroup pico_audio_pwm
+  *  \todo
