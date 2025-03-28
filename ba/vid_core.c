@@ -130,7 +130,7 @@ static uint v_scanline = DMACH_NUM;
 static bool vactive_cmdlist_posted = false;
 
 void __time_critical_func(dma_irq_handler)() {
-    // dma_pong indicates the channel that just finished, which is the one
+    // ch_num indicates the channel that just finished, which is the one
     // we're about to reload.
     dma_channel_hw_t *ch = &dma_hw->ch[ch_num];
     dma_hw->intr = 1u << ch_num;
@@ -308,8 +308,6 @@ void step_video() {
 
         break;
     }
-
-    return 0;
 }
 
 void setup_video() {

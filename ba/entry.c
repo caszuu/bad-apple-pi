@@ -11,6 +11,7 @@
 extern void setup_video();
 extern void setup_audio();
 
+extern void setup_hstx();
 extern void step_video();
 
 int main() {

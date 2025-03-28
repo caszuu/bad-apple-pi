@@ -94,8 +94,6 @@ def bv_draw_supertile(bits: bitarray, state: BitVState, seek_head: int, win_buf:
                 else:
                     for y in range(4):
                         for x in range(4):
-                            # pygame.draw.rect(win_surf, (255, 255, 255) if tile_data[0] else (0, 0, 0), ((base_tx + tx) * 4, (base_ty + ty) * 4, 4, 4))
-                            # win_surf.set_at(((base_tx + tx) * 4 + x, (base_ty + ty) * 4 + y), (255, 255, 255) if tile_data[x + y * 4] else (0, 0, 0))
                             win_buf.write(b'\xff\xff\xff\xff' if tile_data[x + y * 4] else b'\x00\x00\x00\xff', (base_index + x + y * state.bv_extent[0]) * 4)
 
     if adjecency_prefix == bitarray("00"):
@@ -125,18 +123,6 @@ def bv_play(state: BitVState, bits: bitarray) -> None:
     playback = True
    
     while True:
-        # frame_bits = bits[(18 + state.bv_extent[0] * state.bv_extent[1]) * frame_i: (18 + state.bv_extent[0] * state.bv_extent[1]) * (frame_i + 1)]
-        
-        # # proc flip cmd
-        # flip_offset = struct.unpack("<bb", bits[2:18].tobytes())
-        # frame_bits <<= 2 + 16
-
-        # win_surf.scroll(*flip_offset)
-
-        # # proc frame "diff"
-        # frame_data = b''.join(map(lambda px: b'\xff\xff\xff\xff' if px else b'\x00\x00\x00\xff', frame_bits[:state.bv_extent[0] * state.bv_extent[1]]))
-        # win_surf.get_buffer().write(frame_data)
-
         cmd_b0 = bits[seek_head]
 
         if cmd_b0:
